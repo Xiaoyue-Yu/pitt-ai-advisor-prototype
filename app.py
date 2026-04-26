@@ -1,6 +1,7 @@
 import os
-
 import streamlit as st
+from openai import OpenAI
+
 
 try:
     from openai import OpenAI
@@ -170,24 +171,39 @@ def get_openai_client():
         return None
     return OpenAI()
 
-
 def call_llm(system_prompt: str, user_prompt: str, fallback: str) -> str:
-    client = get_openai_client()
-    if client is None:
-        return fallback
+    try:
+        api_key = st.secrets["OPENROUTER_API_KEY"]
+        if not api_key.startswith("sk-or-"):
+            return fallback + "\n\n[Error: OPENROUTER_API_KEY in .streamlit/secrets.toml does not look like a valid OpenRouter API key]"
+    except KeyError:
+        return fallback + "\n\n[Error: Cannot find OPENROUTER_API_KEY in .streamlit/secrets.toml]"
+
+    client = OpenAI(
+        base_url="https://openrouter.ai/api/v1",
+        api_key=api_key,
+    )
 
     try:
-        response = client.responses.create(
-            model=os.getenv("OPENAI_MODEL", "gpt-4.1-mini"),
-            input=[
+        response = client.chat.completions.create(
+            model="openrouter/free", 
+            messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
+            temperature=0.7
         )
-        return response.output_text.strip()
+        
+        # Safely extract the content to prevent NoneType errors
+        content = response.choices[0].message.content
+        
+        if content is None:
+            return f"{fallback}\n\n[System Note: The free OpenRouter model returned an empty response due to network latency or rate limits. Falling back to the default local response. Please try again.]"
+            
+        return content.strip()
+        
     except Exception as exc:  # pragma: no cover
-        return f"{fallback}\n\n[LLM call failed, so the app fell back to the local demo response: {exc}]"
-
+        return f"{fallback}\n\n[API Error]: {exc}"
 
 def option_a_answer(question: str) -> str:
     system_prompt = (
