@@ -164,13 +164,6 @@ def build_css() -> None:
     )
 
 
-def get_openai_client():
-    if OpenAI is None:
-        return None
-    if not os.getenv("OPENAI_API_KEY"):
-        return None
-    return OpenAI()
-
 def call_llm(system_prompt: str, user_prompt: str, fallback: str) -> str:
     try:
         api_key = st.secrets["OPENROUTER_API_KEY"]
@@ -191,7 +184,7 @@ def call_llm(system_prompt: str, user_prompt: str, fallback: str) -> str:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
-            temperature=0.7
+            temperature=0.5
         )
         
         # Safely extract the content to prevent NoneType errors
